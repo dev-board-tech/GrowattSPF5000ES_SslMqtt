@@ -30,3 +30,6 @@
 *.exe
 *.out
 *.app
+
+crt.h
+credentials.h
