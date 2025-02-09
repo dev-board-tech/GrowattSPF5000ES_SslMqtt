@@ -117,7 +117,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 void mqttConnect() {
-  while (!client.connected()) {
+  if (!client.connected()) {
     String client_id = PSTR("hallCtl_");
     client_id += String(WiFi.macAddress());
     if (client.connect( client_id.c_str(), brokerUsername, brokerPassword)) {
@@ -150,6 +150,7 @@ void setup() {
   PV_Init();
   PV_triggerDataRead();
   pvRadTimeout_Timer.Start();
+  wifiConnectingTimer.Start();
 }
 
 void loop() {
