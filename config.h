@@ -13,6 +13,8 @@
 #define MODULE_ID_2       2
 #define MODULE_ID         MODULE_ID_2
 
+#define USE_PUB_SUB_LIB  true
+#define USE_SECURE_MQTT   false
 
 #define USE_MESH
 //ERROR | MESH_STATUS | CONNECTION | SYNC |

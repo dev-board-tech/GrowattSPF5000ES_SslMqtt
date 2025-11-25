@@ -1,13 +1,17 @@
+#include "config.h"
 #include "WiFiClientSecure.h"
 #include <arduFPGA-app-common-arduino.h>
+#if USE_PUB_SUB_LIB
 #include <PubSubClient.h>
+#else
+#include <ArduinoMqttClient.h>
+#endif
 #include <ArduinoJson.h>
 #include <ArduinoOTA.h>
 #include <NTPClient.h>
 #include <Rtc_Pcf8563.h>
 #include "crt.h"
 #include "credentials.h"
-#include "config.h"
 #include "apiCtl.h"
 #include "pv.h"
 
@@ -15,11 +19,15 @@
 // MQTT Broker credentials
 const char* mqtt_broker = "192.168.1.3";
 const char* outTopicKeepAlive = "/alive";
-String inTopic = "clients/5E5C3F676D223F84/home_ctl/"MODULE_NAME"/"GROUP_NR"/"MODULE_NR;
+String inTopic = "clients/5E5C3F676D223F84/home_ctl/" MODULE_NAME "/" GROUP_NR "/" MODULE_NR;
 bool clientConnected = false;
 bool wifiClientConnectedLast = false;
 bool mqttClientConnectedLast = false;
+#if USE_SECURE_MQTT
 const int mqtt_port = 8883 ;
+#else
+const int mqtt_port = 1883 ;
+#endif
 const char* brokerUsername = BROKER_USERNAME;
 const char* brokerPassword = BROKER_PASSWORD;
 
@@ -30,9 +38,17 @@ const char* server_key  = serverKey;
 
 const uint8_t mqttCertFingerprint[] = CERT_FINGERPRINT;
 
+#if USE_SECURE_MQTT
 BearSSL::X509List cert(caCrt);
 BearSSL::WiFiClientSecure espClient;
+#else
+WiFiClient espClient;
+#endif
+#if USE_PUB_SUB_LIB
 PubSubClient client(espClient);
+#else
+MqttClient client(espClient);
+#endif
 
 const char* host = OTA_NAME;
 const char* otaPass = OTA_PASS;
@@ -57,7 +73,15 @@ WiFiUDP ntpUDP;
 NTPClient timeClient(ntpUDP, "192.168.1.3");
 long refreshCnt = 0;
 
+#if USE_PUB_SUB_LIB
 void callback(char* topic, byte* payload, unsigned int length) {
+#else
+void callback(int length) {
+  String s = client.messageTopic();
+  const char *topic = s.c_str();
+  byte payload[length];
+  client.read(payload, length);
+#endif
   JsonDocument doc;
   DeserializationError error = deserializeJson(doc, payload);
   if (error) {
@@ -74,13 +98,31 @@ void callback(char* topic, byte* payload, unsigned int length) {
       String ot = "{outputConfig: ";
       ot += value;
       ot += "}";
-      client.publish(iTop.c_str(), ot.c_str(), false);
-      client.flush();
+#if USE_PUB_SUB_LIB
+  client.publish(iTop.c_str(), ot.c_str(), false);
+  client.flush();
+#else
+  client.beginMessage(iTop.c_str());
+  client.print(ot.c_str());
+  client.endMessage();
+  client.flush();
+#endif
+      //client.publish(iTop.c_str(), ot.c_str(), false);
+      //client.flush();
     } else {
       er += "\"outputConfig\"}";
-      client.publish(iTop.c_str(), er.c_str(), false);
-      client.flush();
-    }
+#if USE_PUB_SUB_LIB
+  client.publish(iTop.c_str(), er.c_str(), false);
+  client.flush();
+#else
+  client.beginMessage(iTop.c_str());
+  client.print(er.c_str());
+  client.endMessage();
+  client.flush();
+#endif
+      //client.publish(iTop.c_str(), ot.c_str(), false);
+      //client.flush();
+     }
   } else if(!doc["chargeConfig"].isNull()) {
     int value = doc["chargeConfig"].as<String>().toInt();
     if(value < 3 && !PV_GetBusy()) {
@@ -88,13 +130,31 @@ void callback(char* topic, byte* payload, unsigned int length) {
       String ot = "{chargeConfig: ";
       ot += value;
       ot += "}";
-      client.publish(iTop.c_str(), ot.c_str(), false);
-      client.flush();
-    } else {
+#if USE_PUB_SUB_LIB
+  client.publish(iTop.c_str(), ot.c_str(), false);
+  client.flush();
+#else
+  client.beginMessage(iTop.c_str());
+  client.print(ot.c_str());
+  client.endMessage();
+  client.flush();
+#endif
+      //client.publish(iTop.c_str(), ot.c_str(), false);
+      //client.flush();
+     } else {
       er += "\"chargeConfig\"}";
-      client.publish(iTop.c_str(), er.c_str(), false);
-      client.flush();
-    }
+#if USE_PUB_SUB_LIB
+  client.publish(iTop.c_str(), er.c_str(), false);
+  client.flush();
+#else
+  client.beginMessage(iTop.c_str());
+  client.print(er.c_str());
+  client.endMessage();
+  client.flush();
+#endif
+      //client.publish(iTop.c_str(), ot.c_str(), false);
+      //client.flush();
+     }
   } else if(!doc["acChargeCurrent"].isNull()) {
     int value = doc["acChargeCurrent"].as<String>().toInt();
     if(value <= 100 && !PV_GetBusy()) {
@@ -102,13 +162,31 @@ void callback(char* topic, byte* payload, unsigned int length) {
       String ot = "{acChargeCurrent: ";
       ot += value;
       ot += "}";
-      client.publish(iTop.c_str(), ot.c_str(), false);
-      client.flush();
-    } else {
+#if USE_PUB_SUB_LIB
+  client.publish(iTop.c_str(), ot.c_str(), false);
+  client.flush();
+#else
+  client.beginMessage(iTop.c_str());
+  client.print(ot.c_str());
+  client.endMessage();
+  client.flush();
+#endif
+      //client.publish(iTop.c_str(), ot.c_str(), false);
+      //client.flush();
+     } else {
       er += "\"acChargeCurrent\"}";
-      client.publish(iTop.c_str(), er.c_str(), false);
-      client.flush();
-    }
+#if USE_PUB_SUB_LIB
+  client.publish(iTop.c_str(), er.c_str(), false);
+  client.flush();
+#else
+  client.beginMessage(iTop.c_str());
+  client.print(er.c_str());
+  client.endMessage();
+  client.flush();
+#endif
+      //client.publish(iTop.c_str(), ot.c_str(), false);
+      //client.flush();
+     }
   } else if(!doc["restart"].isNull()) {
     if(doc["restart"].as<String>().equals("yes")) {
       ESP.restart();
@@ -120,18 +198,29 @@ void mqttConnect() {
   if (!client.connected()) {
     String client_id = PSTR("hallCtl_");
     client_id += String(WiFi.macAddress());
+#if USE_PUB_SUB_LIB
     if (client.connect( client_id.c_str(), brokerUsername, brokerPassword)) {
+#else
+    client.setId(client_id.c_str());
+    client.setUsernamePassword(brokerUsername, brokerPassword);
+    if(client.connect(mqtt_broker, mqtt_port)) {
+#endif
       /*while(Serial.available()) {
         Serial.read();
       }*/
       //client.subscribe(inTopic);
       String t = inTopic + "/#";
       client.subscribe(t.c_str());
-    } else {
-      //String rsp = PSTR("connFailedState:");
-      //rsp += client.state();
-      //serialResponseStatus(rsp);
-      delay(300);
+
+/*#if USE_PUB_SUB_LIB
+  client.publish(inTopic.c_str(), MDNS_NAME ": Connacted", false);
+  client.flush();
+#else
+  client.beginMessage(inTopic.c_str());
+  client.print(MDNS_NAME ": Connacted");
+  client.endMessage();
+  client.flush();
+#endif*/
     }
   }
 }
@@ -155,7 +244,7 @@ void setup() {
 
 void loop() {
   PV_Loop();
-  delay(5);
+  delay(1);
   if(!inTopic.isEmpty() && client.connected() && clientConnected != client.connected()) {
     clientConnected = client.connected();
   }
@@ -203,16 +292,23 @@ void loop() {
         //espClient.setCACert(root_ca);
         //espClient.setCertificate(server_cert);  // for client verification
         //espClient.setPrivateKey(server_key);    // for client verification
+#if USE_SECURE_MQTT
         espClient.setTrustAnchors(&cert);
         espClient.setFingerprint(mqttCertFingerprint);
         BearSSL::X509List *serverCertList = new BearSSL::X509List(serverCrt);
         BearSSL::PrivateKey *serverPrivKey = new BearSSL::PrivateKey(serverKey);
         espClient.setClientRSACert(serverCertList, serverPrivKey);
-                
+#endif
 
         // Connect to the MQTT Broker remotely
+#if USE_PUB_SUB_LIB
         client.setServer(mqtt_broker, mqtt_port);
         client.setCallback(callback);
+        client.setBufferSize(1800);
+#else
+        client.onMessage(callback);
+        client.setTxPayloadSize(1800);
+#endif
 
 
         // Port defaults to 8266
@@ -293,7 +389,7 @@ void loop() {
 
         mqttConnect();
         keepAlive_Timer.Start();
-        client.setBufferSize(1800);
+        //client.setBufferSize(1800);
       }
       break;
     case CONNECTED:
@@ -301,7 +397,11 @@ void loop() {
         SchetchWiFiState = DISCONNECTED;
         keepAlive_Timer.Stop();
       } else {
+#if USE_PUB_SUB_LIB
         client.loop();
+#else
+        client.poll();
+#endif
         mqttConnect();
         /*if(keepAlive_Timer.Tick()) {
           keepAlive_Timer.Stop();
@@ -329,9 +429,18 @@ void loop() {
             char buf[1800];
             //strcpy(buf, "{\"TemporaryData\":1}");
             mqttResponseLog(&rtc, buf);
-            client.publish(inTopic.c_str(), buf, false);
-            client.flush();
-            pId++;
+#if USE_PUB_SUB_LIB
+  client.publish(inTopic.c_str(), buf, false);
+  client.flush();
+#else
+  client.beginMessage(inTopic.c_str());
+  client.print(buf);
+  client.endMessage();
+  client.flush();
+#endif
+      //client.publish(iTop.c_str(), ot.c_str(), false);
+      //client.flush();
+             pId++;
             //PV_triggerDataRead();
             //pvRadTimeout_Timer.Start();
           }
